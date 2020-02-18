@@ -10,6 +10,7 @@
       "name": "aws",
       "runtime": "python3.8",
       "region": "ap-northeast-1",
+      "memorySize": 3008,
       "versionFunctions": true,
       "remoteFunctionData": null,
       "compiledCloudFormationTemplate": {
@@ -70,10 +71,10 @@
               }
             }
           },
-          "HelloLogGroup": {
+          "OptimizeLogGroup": {
             "Type": "AWS::Logs::LogGroup",
             "Properties": {
-              "LogGroupName": "/aws/lambda/roster-optimizer-dev-hello"
+              "LogGroupName": "/aws/lambda/roster-optimizer-dev-optimize"
             }
           },
           "IamRoleLambdaExecution": {
@@ -187,7 +188,7 @@
                         "Resource": [
                           {
                             "Fn::GetAtt": [
-                              "HelloLogGroup",
+                              "OptimizeLogGroup",
                               "Arn"
                             ]
                           }
@@ -199,18 +200,18 @@
               ]
             }
           },
-          "HelloLambdaFunction": {
+          "OptimizeLambdaFunction": {
             "Type": "AWS::Lambda::Function",
             "Properties": {
               "Code": {
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/roster-optimizer/dev/1582031471436-2020-02-18T13:11:11.436Z/roster-optimizer.zip"
+                "S3Key": "serverless/roster-optimizer/dev/1582068467019-2020-02-18T23:27:47.019Z/roster-optimizer.zip"
               },
-              "FunctionName": "roster-optimizer-dev-hello",
-              "Handler": "s_hello.handler",
-              "MemorySize": 1024,
+              "FunctionName": "roster-optimizer-dev-optimize",
+              "Handler": "s_optimize.handler",
+              "MemorySize": 3008,
               "Role": {
                 "Fn::GetAtt": [
                   "IamRoleLambdaExecution",
@@ -220,22 +221,22 @@
               "Runtime": "python3.8",
               "Timeout": 6,
               "Layers": [
-                "arn:aws:lambda:ap-northeast-1:861995088152:layer:python-requirements-layer-dev-python-requirements:1"
+                "arn:aws:lambda:ap-northeast-1:861995088152:layer:python-requirements-layer-dev-python-requirements:4"
               ]
             },
             "DependsOn": [
-              "HelloLogGroup",
+              "OptimizeLogGroup",
               "IamRoleLambdaExecution"
             ]
           },
-          "HelloLambdaVersionOhaMzrVUtLuiXKU392cAYDmyzAfGzgY026X8aXAAk": {
+          "OptimizeLambdaVersioncA1bVtb5SSTSt4wMOAQPFoaQL7UusDEhUDjy67CkMU": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
-                "Ref": "HelloLambdaFunction"
+                "Ref": "OptimizeLambdaFunction"
               },
-              "CodeSha256": "DnO9IUu7GOp7iR2bCES1YiDP7ZkOnH04fxA4r5wgfaM="
+              "CodeSha256": "ymIT1CsFwB+uHUtqcZ0IQgFsKnWl3UC6b03W+xJZzlc="
             }
           },
           "ApiGatewayRestApi": {
@@ -250,10 +251,58 @@
               "Policy": ""
             }
           },
-          "ApiGatewayMethodGet": {
+          "ApiGatewayMethodOptions": {
             "Type": "AWS::ApiGateway::Method",
             "Properties": {
-              "HttpMethod": "GET",
+              "AuthorizationType": "NONE",
+              "HttpMethod": "OPTIONS",
+              "MethodResponses": [
+                {
+                  "StatusCode": "200",
+                  "ResponseParameters": {
+                    "method.response.header.Access-Control-Allow-Origin": true,
+                    "method.response.header.Access-Control-Allow-Headers": true,
+                    "method.response.header.Access-Control-Allow-Methods": true
+                  },
+                  "ResponseModels": {}
+                }
+              ],
+              "RequestParameters": {},
+              "Integration": {
+                "Type": "MOCK",
+                "RequestTemplates": {
+                  "application/json": "{statusCode:200}"
+                },
+                "ContentHandling": "CONVERT_TO_TEXT",
+                "IntegrationResponses": [
+                  {
+                    "StatusCode": "200",
+                    "ResponseParameters": {
+                      "method.response.header.Access-Control-Allow-Origin": "'*'",
+                      "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+                      "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,POST'"
+                    },
+                    "ResponseTemplates": {
+                      "application/json": "#set($origin = $input.params(\"Origin\"))\n#if($origin == \"\") #set($origin = $input.params(\"origin\")) #end\n#if($origin.matches(\".*\")) #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin) #end"
+                    }
+                  }
+                ]
+              },
+              "ResourceId": {
+                "Fn::GetAtt": [
+                  "ApiGatewayRestApi",
+                  "RootResourceId"
+                ]
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          },
+          "ApiGatewayMethodPost": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "HttpMethod": "POST",
               "RequestParameters": {},
               "ResourceId": {
                 "Fn::GetAtt": [
@@ -284,7 +333,7 @@
                       ":lambda:path/2015-03-31/functions/",
                       {
                         "Fn::GetAtt": [
-                          "HelloLambdaFunction",
+                          "OptimizeLambdaFunction",
                           "Arn"
                         ]
                       },
@@ -296,7 +345,7 @@
               "MethodResponses": []
             }
           },
-          "ApiGatewayDeployment1582031467372": {
+          "ApiGatewayDeployment1582068463536": {
             "Type": "AWS::ApiGateway::Deployment",
             "Properties": {
               "RestApiId": {
@@ -305,15 +354,16 @@
               "StageName": "dev"
             },
             "DependsOn": [
-              "ApiGatewayMethodGet"
+              "ApiGatewayMethodOptions",
+              "ApiGatewayMethodPost"
             ]
           },
-          "HelloLambdaPermissionApiGateway": {
+          "OptimizeLambdaPermissionApiGateway": {
             "Type": "AWS::Lambda::Permission",
             "Properties": {
               "FunctionName": {
                 "Fn::GetAtt": [
-                  "HelloLambdaFunction",
+                  "OptimizeLambdaFunction",
                   "Arn"
                 ]
               },
@@ -454,7 +504,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/roster-optimizer/dev/1582031471436-2020-02-18T13:11:11.436Z/custom-resources.zip"
+                "S3Key": "serverless/roster-optimizer/dev/1582068467019-2020-02-18T23:27:47.019Z/custom-resources.zip"
               },
               "FunctionName": "roster-optimizer-dev-custom-resource-apigw-cw-role",
               "Handler": "apiGatewayCloudWatchRole/handler.handler",
@@ -472,13 +522,13 @@
               "IamRoleCustomResourcesLambdaExecution"
             ]
           },
-          "CloudWatchLogsSubscriptionFilterHelloLogGroup": {
+          "CloudWatchLogsSubscriptionFilterOptimizeLogGroup": {
             "Type": "AWS::Logs::SubscriptionFilter",
             "Properties": {
               "DestinationArn": "arn:aws:logs:ap-northeast-1:802587217904:destination:xL1cggpRwKD6KGMGRM#WJ0Z3gMF6XW6vSKnkz#roster-optimizer#dev",
               "FilterPattern": "?\"REPORT RequestId: \" ?\"SERVERLESS_ENTERPRISE\"",
               "LogGroupName": {
-                "Ref": "HelloLogGroup"
+                "Ref": "OptimizeLogGroup"
               }
             }
           },
@@ -507,10 +557,10 @@
               ]
             }
           },
-          "HelloLambdaFunctionQualifiedArn": {
+          "OptimizeLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "HelloLambdaVersionOhaMzrVUtLuiXKU392cAYDmyzAfGzgY026X8aXAAk"
+              "Ref": "OptimizeLambdaVersioncA1bVtb5SSTSt4wMOAQPFoaQL7UusDEhUDjy67CkMU"
             }
           },
           "ServiceEndpoint": {
@@ -617,31 +667,50 @@
       "stage": "dev",
       "requirements_service": "python-requirements-layer",
       "requirements_export": "PythonRequirementsLambdaLayerExport",
-      "requirements_layer": "arn:aws:lambda:ap-northeast-1:861995088152:layer:python-requirements-layer-dev-python-requirements:1"
+      "requirements_layer": "arn:aws:lambda:ap-northeast-1:861995088152:layer:python-requirements-layer-dev-python-requirements:4"
     },
     "pluginsData": {},
     "functions": {
-      "hello": {
-        "handler": "s_hello.handler",
+      "optimize": {
+        "handler": "s_optimize.handler",
         "layers": {
-          "$ref": "$[\"service\"][\"provider\"][\"compiledCloudFormationTemplate\"][\"Resources\"][\"HelloLambdaFunction\"][\"Properties\"][\"Layers\"]"
+          "$ref": "$[\"service\"][\"provider\"][\"compiledCloudFormationTemplate\"][\"Resources\"][\"OptimizeLambdaFunction\"][\"Properties\"][\"Layers\"]"
         },
         "events": [
           {
             "http": {
               "path": "",
-              "method": "get",
+              "method": "post",
+              "cors": {
+                "origins": [
+                  "*"
+                ],
+                "origin": "*",
+                "methods": [
+                  "OPTIONS",
+                  "POST"
+                ],
+                "headers": [
+                  "Content-Type",
+                  "X-Amz-Date",
+                  "Authorization",
+                  "X-Api-Key",
+                  "X-Amz-Security-Token",
+                  "X-Amz-User-Agent"
+                ],
+                "allowCredentials": false
+              },
               "integration": "AWS_PROXY"
             }
           }
         ],
-        "name": "roster-optimizer-dev-hello",
+        "name": "roster-optimizer-dev-optimize",
         "package": {},
-        "memory": 1024,
+        "memory": 3008,
         "timeout": 6,
         "runtime": "python3.8",
         "vpc": {},
-        "versionLogicalId": "HelloLambdaVersionOhaMzrVUtLuiXKU392cAYDmyzAfGzgY026X8aXAAk"
+        "versionLogicalId": "OptimizeLambdaVersioncA1bVtb5SSTSt4wMOAQPFoaQL7UusDEhUDjy67CkMU"
       }
     },
     "serviceFilename": "serverless.yml",
@@ -655,7 +724,7 @@
     "artifact": "/Users/Yusuke/work/programming/VScode/work/roster-optimizer/lambda/.serverless/roster-optimizer.zip"
   },
   "package": {
-    "artifactDirectoryName": "serverless/roster-optimizer/dev/1582031471436-2020-02-18T13:11:11.436Z",
+    "artifactDirectoryName": "serverless/roster-optimizer/dev/1582068467019-2020-02-18T23:27:47.019Z",
     "artifact": "roster-optimizer.zip"
   }
 }

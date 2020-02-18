@@ -1,9 +1,11 @@
 import json
 import numpy
+import pulp
 
 def hello(event, context):
     body = {
         "numpy.__version__": numpy.__version__
+        "pulp.__version__": pulp.__version__
     }
 
     response = {

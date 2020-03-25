@@ -33,6 +33,9 @@ def solve(req):
     # prohibitedPatternDiff = np.array([pulp.LpVariable(name='prohibitedPatternDiff_member({})_shiftType({})'.format(m,w), lowBound=0) for m in range(N_members) for w in range(N_shiftTypes)]).reshape(N_members,N_shiftTypes)
     requestObjectives = []
 
+    prohibitedAssignmentTableau = np.ones((N_members,N_dates,N_shiftTypes))
+
+
     # collision
     for m in range(N_members):
         for d in range(N_dates):
@@ -60,7 +63,9 @@ def solve(req):
                 lp +=  item.min - minTotalCountDiff[memberIndex,shiftTypeIndex] <= totalCount, "minTotalCount_member{}_shiftType{}".format(memberIndex,shiftTypeIndex)
             if item.max is not None:
                 lp +=  totalCount  <= item.max + maxTotalCountDiff[memberIndex,shiftTypeIndex], "maxTotalCount_member{}_shiftType{}".format(memberIndex,shiftTypeIndex)
-
+                if item.max == 0:
+                    for d in range(N_dates):
+                        prohibitedAssignmentTableau[memberIndex,d,shiftTypeIndex] == 0
         # Consecutive 
         for item in member.constraintSet.consecutiveRanges['items']:
             shiftTypeIndex = shiftTypeIdToIndex[item.intervalShiftTypeID]
@@ -110,12 +115,20 @@ def solve(req):
             dateIndex = dateToIndex[item.date]
             shiftTypeIndexExcluded = list(range(N_shiftTypes))
             shiftTypeIndexExcluded.remove(shiftTypeIndex)
+            if prohibitedAssignmentTableau[memberIndex,dateIndex,shiftTypeIndex] != 0:
+                prohibitedAssignmentTableau[memberIndex,dateIndex,shiftTypeIndex] = 1
             lp += x[memberIndex,dateIndex,shiftTypeIndex] == 1
             for idx in shiftTypeIndexExcluded:
                 lp += x[memberIndex,dateIndex,idx] == 0
+
         # Requests 
         requestObjectives.append(pulp.lpSum(1-x[memberIndex,dateToIndex[item.date],shiftTypeIdToIndex[item.intervalShiftTypeID]] for item in member.requests['items']))
             
+        # prohibitedAssignmentTableau
+        for d in range(N_dates):
+            for w in range(N_shiftTypes):
+                if prohibitedAssignmentTableau[memberIndex, d, w] == 0:
+                    lp += x[memberIndex,d,w] == 0
 
 
     # Objective Function

@@ -2,6 +2,7 @@ import pulp
 import numpy as np
 from box import Box
 import json
+import copy
 
 def solve(req):
     req = Box(req)
@@ -29,13 +30,13 @@ def solve(req):
     maxConsecutiveDiff = np.array([pulp.LpVariable(name='maxConsecutiveDiff_member({})_shiftType({})'.format(m,w), lowBound=0) for m in range(N_members) for w in range(N_shiftTypes)]).reshape(N_members,N_shiftTypes)
     minIntervalDiff = np.array([pulp.LpVariable(name='minIntervalDiff_member({})_shiftType({})'.format(m,w), lowBound=0) for m in range(N_members) for w in range(N_shiftTypes)]).reshape(N_members,N_shiftTypes)
     maxIntervalDiff = np.array([pulp.LpVariable(name='maxIntervalDiff_member({})_shiftType({})'.format(m,w), lowBound=0) for m in range(N_members) for w in range(N_shiftTypes)]).reshape(N_members,N_shiftTypes)
-    prohibitedPatternDiff = np.array([pulp.LpVariable(name='prohibitedPatternDiff_member({})_shiftType({})'.format(m,w), lowBound=0) for m in range(N_members) for w in range(N_shiftTypes)]).reshape(N_members,N_shiftTypes)
+    # prohibitedPatternDiff = np.array([pulp.LpVariable(name='prohibitedPatternDiff_member({})_shiftType({})'.format(m,w), lowBound=0) for m in range(N_members) for w in range(N_shiftTypes)]).reshape(N_members,N_shiftTypes)
     requestObjectives = []
 
     # collision
     for m in range(N_members):
         for d in range(N_dates):
-            lp += pulp.lpSum(x[m,d]) == 1, 'collision_member{}_date{}'.format(m,d)
+            lp += pulp.lpSum(x[m,d]) <= 1, 'collision_member{}_date{}'.format(m,d)
     # Requirements
     for r in req['requirements']:
         groupIndex = groupIdToIndex[r['intervalGroupID']]
@@ -79,13 +80,30 @@ def solve(req):
                 for dateIndex in range(item.min, N_dates):
                     for t in range(2,item.min+1):
                         lp += x[memberIndex,dateIndex-t,shiftTypeIndex] - pulp.lpSum(x[memberIndex,dateIndex-dateDiff,shiftTypeIndex] for dateDiff in range(1,t)) + x[memberIndex,dateIndex,shiftTypeIndex] - minIntervalDiff[memberIndex,shiftTypeIndex] <= 1
-        # Prohibited Pattern
-        for pattern in member.constraintSet.prohibitedPatterns['items']:
-            L = len(pattern.shiftTypes['items'])
-            for dateIndex in range(L-1, N_dates):
-                lp += pulp.lpSum(x[memberIndex,dateIndex-L+1+dateDiff,shiftTypeIdToIndex[pattern.shiftTypes['items'][dateDiff].intervalShiftTypeID]] for dateDiff in range(L)) -prohibitedPatternDiff[memberIndex,shiftTypeIndex] <= L-1
+        
+        # Prohibited Pattern preprocessing
+        prohibitedPatterns = []
+        for patternItem in member.constraintSet.prohibitedPatterns['items']:
+            patternList = [[]]
+            for item in patternItem.pattern['items']:
+                tmpPatternList = copy.deepcopy(patternList)
+                newPattern = []
+                for ptn in tmpPatternList:
+                    # print('ptn:', ptn)
+                    for i in item.prohibitedShiftTypes['items']:
+                        tmpPtn = copy.deepcopy(ptn)
+                        tmpPtn.append(i.intervalShiftTypeID)
+                        newPattern.append(tmpPtn)
+                # print('newPattern: ', len(newPattern))
+                patternList = newPattern
+            prohibitedPatterns.extend(patternList)
 
-        print(dateToIndex)
+        # Prohibited Pattern
+        for pattern in prohibitedPatterns:
+            L = len(pattern)
+            for dateIndex in range(L-1, N_dates):
+                lp += pulp.lpSum(x[memberIndex,dateIndex-L+1+dateDiff,shiftTypeIdToIndex[pattern[dateDiff]]] for dateDiff in range(L))  <= L-1
+
         # Fixed Assignment
         for item in member.fixedAssignments['items']:
             shiftTypeIndex = shiftTypeIdToIndex[item.intervalShiftTypeID]
@@ -101,7 +119,7 @@ def solve(req):
 
 
     # Objective Function
-    lp += pulp.lpSum([minRequirementDiff,maxRequirementDiff, minTotalCountDiff,maxTotalCountDiff,minConsecutiveDiff,maxConsecutiveDiff,maxIntervalDiff,minIntervalDiff,prohibitedPatternDiff,requestObjectives])
+    lp += pulp.lpSum([minRequirementDiff,maxRequirementDiff, minTotalCountDiff,maxTotalCountDiff,minConsecutiveDiff,maxConsecutiveDiff,maxIntervalDiff,minIntervalDiff,requestObjectives])
     lp.solve()
 
     print(pulp.LpStatus[lp.status])
@@ -125,6 +143,12 @@ def optimize(event, context):
     res = solve(req)
     response = {
         "statusCode":200,
+        "headers": {
+            "Content-Type": 'application/json',
+            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+            "Access-Control-Allow-Methods": "POST",
+            "Access-Control-Allow-Origin": "*"
+        },
         "body": json.dumps(res)
     }
     return response

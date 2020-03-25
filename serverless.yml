@@ -1,6 +1,6 @@
 service: roster-optimizer
 # app and org for use with dashboard.serverless.com
-app: wariful
+app: wariful-optimizer
 org: g960059
 
 # You can pin your service to only deploy with a specific Serverless version

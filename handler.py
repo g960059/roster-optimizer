@@ -39,7 +39,7 @@ def solve(req):
     # collision
     for m in range(N_members):
         for d in range(N_dates):
-            lp += pulp.lpSum(x[m,d]) <= 1, 'collision_member{}_date{}'.format(m,d)
+            lp += pulp.lpSum(x[m,d]) == 1, 'collision_member{}_date{}'.format(m,d)
     # Requirements
     for r in req['requirements']:
         groupIndex = groupIdToIndex[r['intervalGroupID']]
@@ -47,8 +47,10 @@ def solve(req):
         memberIndices = groupIndexToMembers[groupIndex]
         for d in r['dates']['items']:
             dateIndex = dateToIndex[d['date']]
-            lp += d['min'] - minRequirementDiff[groupIndex,dateIndex,shiftTypeIndex] <= pulp.lpSum(x[memberIndices,dateIndex,shiftTypeIndex]),'minRequirement_group{}_date{}_shiftType{}'.format(groupIndex,dateIndex,shiftTypeIndex)
-            lp += d['max'] + maxRequirementDiff[groupIndex,dateIndex,shiftTypeIndex] >= pulp.lpSum(x[memberIndices,dateIndex,shiftTypeIndex]),'maxRequirement_group{}_date{}_shiftType{}'.format(groupIndex,dateIndex,shiftTypeIndex)
+            if d['min'] != -1:
+                lp += d['min'] - minRequirementDiff[groupIndex,dateIndex,shiftTypeIndex] <= pulp.lpSum(x[memberIndices,dateIndex,shiftTypeIndex]),'minRequirement_group{}_date{}_shiftType{}'.format(groupIndex,dateIndex,shiftTypeIndex)
+            if d['max'] != -1:
+                lp += d['max'] + maxRequirementDiff[groupIndex,dateIndex,shiftTypeIndex] >= pulp.lpSum(x[memberIndices,dateIndex,shiftTypeIndex]),'maxRequirement_group{}_date{}_shiftType{}'.format(groupIndex,dateIndex,shiftTypeIndex)                
 
     
     # Member Constraints
